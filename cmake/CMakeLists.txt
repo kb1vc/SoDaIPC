@@ -1,0 +1,12 @@
+
+CONFIGURE_FILE (
+  SoDaIPCConfigVersion.cmake.in
+  "${PROJECT_BINARY_DIR}/SoDaIPCConfigVersion.cmake"
+  @ONLY
+  )  
+
+INSTALL(FILES ${PROJECT_BINARY_DIR}/SoDaIPCConfigVersion.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/SoDaIPC")
+INSTALL(FILES SoDaIPCConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/SoDaIPC")
+
+#INSTALL(FILES FindSoDaIPC.cmake DESTINATION "lib/cmake/SoDaIPC")
+
