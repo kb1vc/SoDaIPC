@@ -111,7 +111,7 @@ namespace SoDa {
 
       ~PoolAllocatedBuffer() {
 	std::cerr << "Deallocating " << this << "\n";
-	from_pool->returnToPool(this->vec_p);
+	from_pool->returnToPool(this->vec_p, this->vec_p->size());
       }
       
       BufferPool<T> * from_pool;
@@ -128,11 +128,11 @@ namespace SoDa {
 	// still be in the TLBs and caches.
 	pool[n].pop_front();
 	std::cerr << "Allocated buffer pointer " << r << " queue now has " << pool[n].size() << " entries\n";
-	return std::shared_ptr<PoolAllocatedBuffer>(r);
+	return std::make_shared<PoolAllocatedBuffer>(this, r);
       }
       else {
 	std::cerr << "Need to allocate elements for pool[ " << n << "\n";
-	pool[n] = std::deque<PoolAllocatedBuffer *>();
+	pool[n] = std::deque<std::vector<T> *>();
 	fillPool(n); 
 	return getFromPool(n);
       }
@@ -145,11 +145,11 @@ namespace SoDa {
     void fillPool(size_t n) {
       std::cerr << "Filling the pool.\n";
       if(pool.count(n) == 0) {
-	pool[n] = std::deque<PoolAllocatedBuffer *>();
+	pool[n] = std::deque<std::vector<T> *>();
       }
 
       while(pool[n].size() < min_pool_size) {
-	pool[n].push_back(new PoolAllocatedBuffer(this, n));
+	pool[n].push_back(new std::vector<T>(n));
       }
     }
     

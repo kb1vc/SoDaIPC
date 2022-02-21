@@ -110,8 +110,6 @@ namespace SoDa {
 
     std::vector<T> & getVec() { return *vec_p; }
     
-    class friend BufferPool;
-    
 
   protected:
     std::vector<T> * vec_p;
