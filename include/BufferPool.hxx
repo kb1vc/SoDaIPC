@@ -46,7 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /**
- * @page SoDa::BufferPoll A buffer allocator that produces vectors
+ * @page SoDa::BufferPool A buffer allocator that produces vectors
  * from a pool. 
  * 
  * 
@@ -83,34 +83,45 @@ namespace SoDa {
   template <typename T>
   class BufferPool {
   public:
-    BufferPool(size_t min_pool_size) :
-      min_pool_size(min_pool_size) {
+    BufferPool(std::string name, size_t min_pool_size) :
+      min_pool_size(min_pool_size), name(name) {
     }
 
     class Exception : public std::runtime_error {
     public:
-      Exception(const std::string & problem) : 
-	std::runtime_error(problem) {
+      Exception(BufferPool * bp, const std::string & problem) : 
+	std::runtime_error("BufferPool[" + bp->name + "] " + problem) {
       }
     };
-  
+    
+    class FillPoolException : public Exception {
+    public:
+      FillPoolException(BufferPool * bp) : 
+	Exception(bp, "Tried to fill the buffer pool, but it is still empty") {	
+      }
+    };
+
+    class ReturnPointerException : public Exception {
+    public:
+      ReturnPointerException(BufferPool * bp) :
+	Exception(bp, "Could not return a pointer to the pool. This is worse than it sounds.") {
+      }
+    };
+
   private:
     class PoolAllocatedBuffer : public Buffer<T> {
     public:
       PoolAllocatedBuffer(BufferPool<T> * bp, size_t n) :
 	Buffer<T>(n) {
-	std::cerr << "Making a new Pool Allocated Buffer\n";	
 	from_pool = bp; 
       }
 
       PoolAllocatedBuffer(BufferPool<T> * bp, std::vector<T> * vp) :
 	Buffer<T>(vp) {
-	std::cerr << "Making a new Pool Allocated Buffer\n";	
 	from_pool = bp; 
       }
 
       ~PoolAllocatedBuffer() {
-	std::cerr << "Deallocating " << this << "\n";
 	from_pool->returnToPool(this->vec_p, this->vec_p->size());
       }
       
@@ -127,35 +138,33 @@ namespace SoDa {
       
       while(1) {
 	if(pool.count(n) > 0) {
-	  std::cerr << "Found something in the pool for size " << n << "\n";
 	  if(pool[n].size() <= 0) fillPool(n);
 	
 	  auto r = pool[n].front();
 	  // take the most recently pushed -- as it may
 	  // still be in the TLBs and caches.
 	  pool[n].pop_front();
-	  std::cerr << "Allocated buffer pointer " << r << " queue now has " << pool[n].size() << " entries\n";
 	  return std::make_shared<PoolAllocatedBuffer>(this, r);
 	}
 	else {
 	  if(second_try) {
-	    throw Exception("Filled the buffer pool, but all the water ran out onto the lawn.\n"); 
+	    throw FillPoolException(this);
 	  }
 	  second_try = true; 
-	  std::cerr << "Need to allocate elements for pool[ " << n << "\n";
 	  pool[n] = std::deque<std::vector<T> *>();
 	  fillPool(n); 
 	}
       }
     }
 
+    
   private:
     std::map<int, std::deque<std::vector<T> *>> pool;
     size_t min_pool_size;
+    std::string name; 
 
     // don't lock this, as it can only be called from getFromPool.
     void fillPool(size_t n) {
-      std::cerr << "Filling the pool.\n";
       if(pool.count(n) == 0) {
 	pool[n] = std::deque<std::vector<T> *>();
       }
@@ -167,13 +176,12 @@ namespace SoDa {
     
     void returnToPool(std::vector<T> * p, size_t n) {
       std::lock_guard<std::mutex> lock(allocation_mtx);            
-      std::cerr << "Attempting to return buffer pointer " << p << "\n";      
       if(pool.count(n) > 0) {
 	pool[n].push_front(p);
       }
       else {
 	// whoa!  That's not right.
-	throw Exception("Could not return pointer to pool.\n");
+	throw ReturnPointerException(this);
       }
     }
   };

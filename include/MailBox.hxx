@@ -3,6 +3,8 @@
 #include <exception>
 #include <stdexcept>
 #include <vector>
+#include <queue>
+
 
 /*
 BSD 2-Clause License
@@ -72,19 +74,34 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * software defined radios or any of that stuff.
  */
 namespace SoDa {
+
+  class MailBoxException : public std::runtime_error {
+  public:
+    MailBoxException(std::string name, const std::string & problem) :
+      std::runtime_error("SoDa::MailBox[" + name + "] " + problem) {
+    }
+  }; 
+  
+  class MailBoxMissingSubscriberException : public MailBoxException {
+  public:
+    MailBoxMissingSubscriberException(std::string name, const std::string & operation, int sub_id) :
+      MailBoxException(name, "::" + operation + " Subscriber ID " + std::to_string(sub_id) + " not found.") {
+    }
+  }; 
+  
   
     /**
      * @class MailBox<T>
-     * @brief Accept messages and distribute them to multiple subscribers
+     * @brief Accept messages and distribute them to multiple mailboxes
      *
-     * @yparam T Type of message that will be found in this mailbox
+     * @tparam T Type of message that will be found in this mailbox
      */
-  
+
   template<typename T>
   class MailBox {
   public:
     /**
-     * @brief Create a mailbox. All subscribers can put and get 
+     * @brief Create a mailbox. All mailboxes can put and get 
      * messages from the mailbox. 
      *
      * Messages are assumed to be std::shared_ptr as a message pointer
@@ -93,10 +110,18 @@ namespace SoDa {
      * Each subscriber gets  message queue.  It is up to the subscriber
      * to "read the mail"
      */
-    MailBox(std::string & name) : name(name) {
-      vec_p = new std::vector<T>(len); 
+    MailBox(std::string name) : name(name) {
     }
 
+    ~MailBox() {
+      for(auto & s : message_queues) {
+	while(!s.empty()) s.pop();
+      }
+      message_queues.clear();
+    }
+    
+
+    
     /**
      * @brief Subscribe the caller to a mailbox.  There may be 
      * multiple subscribers to the same mailbox.  A copy of each
@@ -105,49 +130,62 @@ namespace SoDa {
      * @returns subscriber ID. 
      */
     int subscribe() {
+      std::lock_guard<std::mutex> lock(mtx);	      
       // what will the subscriber number be? 
-      int ret = subscribers.size();
+      int ret = message_queues.size();
 
       // make a subscriber queue
-      subscribers.push_back(std::queue<T>)
+      message_queues.push_back(std::queue<T>());
+
+      return ret; 
     }
 
-    std::string & const getName() { return name; }
+    std::string & getName() const { return name; }
 
     T get(int subscriber_id) {
-      if(nsubscribers.size() <= subscriber_id) {
-	throw MailBox::Exception(this, "::get() No such subscriber", subscriber_id);
-      }
-      if(subscribers[subscriber_id].empty()) {
-	return T(0);
+      std::lock_guard<std::mutex> lock(mtx);	      
+      if(message_queues.size() <= subscriber_id) {
+	throw MailBoxMissingSubscriberException(this->name, "get()", subscriber_id);
       }
       else {
-	T ret = subscribers[subscriber_id].front();
-	subscribers[subscriber_id].pop_front();
+	if(message_queues[subscriber_id].empty()) {
+	  return T(0);
+	}
+	else {
+	  T ret = message_queues[subscriber_id].front();
+	  message_queues[subscriber_id].pop();
+	  return ret;
+	}
       }
     }
     
-    void put(int subscriber_id, T msg) {
-      if(subscribers.size() <= subscriber_id) {
-	throw MailBox::Exception(this, "::put() No such subscriber", subscriber_id);
-      }
-      else {
-	subscribers[subscriber_id].push_back(msg);
+    void put(T msg) {
+      std::lock_guard<std::mutex> lock(mtx);            
+      for(auto & q : message_queues) {
+	q.push(msg);
       }
     }
 
     void clear(int subscriber_id) {
-      if(nsubscribers.size() <= subscriber_id) {
-	throw MailBox::Exception(this, "::get() No such subscriber", subscriber_id);
+      std::lock_guard<std::mutex> lock(mtx);      
+      if(message_queues.size() <= subscriber_id) {
+	throw MailBoxMissingSubscriberException(this->name, "clear()", subscriber_id);	
       }
-      while(!subscribers[subscriber_id].empty()) {
-	subscribers[subscriber_id].pop_front();
+      else {
+	while(!message_queues[subscriber_id].empty()) {
+	  message_queues[subscriber_id].pop_front();
+	}
       }
     }
 
 
   protected:
-    std::string name; 
+    std::string name;
+    std::vector<std::queue<T>> message_queues; 
+    
+
+    // mutual exclusion stuff
+    std::mutex mtx; 
     
   };
 
