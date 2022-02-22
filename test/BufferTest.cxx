@@ -1,8 +1,12 @@
 #include "../include/Buffer.hxx"
 #include "../include/BufferPool.hxx"
+#include <type_traits>
 
 #include <iostream>
 
+template <typename T> void doFunc(T & v) {
+  v = T(0);
+}
 
 int main() {
   // create a buffer
@@ -21,4 +25,10 @@ int main() {
     el->getVec()[2] = i;
     std::cerr << "el = " << el << " el stored ptr = " << el.get() << "\n";
   }
+
+  std::cerr << "\n\nHere goes!\n";
+  auto el = pool.getFromPool(3);  
+
+  doFunc(el);
+  std::cerr << "There it went\n";
 }

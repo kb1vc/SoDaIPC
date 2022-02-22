@@ -117,31 +117,43 @@ namespace SoDa {
       BufferPool<T> * from_pool;
     };
 
+    // mutual exclusion stuff
+    std::mutex allocation_mtx; 
+
   public:
     std::shared_ptr<PoolAllocatedBuffer> getFromPool(size_t n) {
-      if(pool.count(n) > 0) {
-	std::cerr << "Found something in the pool for size " << n << "\n";
-	if(pool[n].size() <= 0) fillPool(n);
+      std::lock_guard<std::mutex> lock(allocation_mtx);
+      bool second_try = false; 
+      
+      while(1) {
+	if(pool.count(n) > 0) {
+	  std::cerr << "Found something in the pool for size " << n << "\n";
+	  if(pool[n].size() <= 0) fillPool(n);
 	
-	auto r = pool[n].front();
-	// take the most recently pushed -- as it may
-	// still be in the TLBs and caches.
-	pool[n].pop_front();
-	std::cerr << "Allocated buffer pointer " << r << " queue now has " << pool[n].size() << " entries\n";
-	return std::make_shared<PoolAllocatedBuffer>(this, r);
-      }
-      else {
-	std::cerr << "Need to allocate elements for pool[ " << n << "\n";
-	pool[n] = std::deque<std::vector<T> *>();
-	fillPool(n); 
-	return getFromPool(n);
+	  auto r = pool[n].front();
+	  // take the most recently pushed -- as it may
+	  // still be in the TLBs and caches.
+	  pool[n].pop_front();
+	  std::cerr << "Allocated buffer pointer " << r << " queue now has " << pool[n].size() << " entries\n";
+	  return std::make_shared<PoolAllocatedBuffer>(this, r);
+	}
+	else {
+	  if(second_try) {
+	    throw Exception("Filled the buffer pool, but all the water ran out onto the lawn.\n"); 
+	  }
+	  second_try = true; 
+	  std::cerr << "Need to allocate elements for pool[ " << n << "\n";
+	  pool[n] = std::deque<std::vector<T> *>();
+	  fillPool(n); 
+	}
       }
     }
 
   private:
     std::map<int, std::deque<std::vector<T> *>> pool;
     size_t min_pool_size;
-    
+
+    // don't lock this, as it can only be called from getFromPool.
     void fillPool(size_t n) {
       std::cerr << "Filling the pool.\n";
       if(pool.count(n) == 0) {
@@ -154,6 +166,7 @@ namespace SoDa {
     }
     
     void returnToPool(std::vector<T> * p, size_t n) {
+      std::lock_guard<std::mutex> lock(allocation_mtx);            
       std::cerr << "Attempting to return buffer pointer " << p << "\n";      
       if(pool.count(n) > 0) {
 	pool[n].push_front(p);
