@@ -79,14 +79,38 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * software defined radios or any of that stuff.
  */
 namespace SoDa {
-  
+  /**
+   * @class BufferPool
+   * 
+   * @brief A creator of SoDa::Buffer objects (actually shared_pointers to them) that allocates
+   * the storage from a pool. 
+   *
+   * @tparam T type of value to be stored in the allocated buffers (e.g. float, std::complex<float>, FooObj...)
+   */
   template <typename T>
   class BufferPool {
   public:
-    BufferPool(std::string name, size_t min_pool_size) :
-      min_pool_size(min_pool_size), name(name) {
+
+    /**
+     * @brief Create the buffer pool. 
+     * 
+     * @param name All buffer pools have a name. This makes exceptions
+     * a little more useful: they can identify the pool that had the
+     * problem.
+     *
+     * @param pool_refill_size The pool for buffers of size N will be
+     * "filled" with this number of buffers each time it runs dry. Big
+     * numbers reduce the likelihood of having to refill the pool. But
+     * they also can consume space.
+     */
+    BufferPool(std::string name, size_t pool_refill_size) :
+      pool_refill_size(pool_refill_size), name(name) {
     }
 
+    /**
+     * @brief Catch this if you don't care what the reason for the 
+     * exception is. 
+     */
     class Exception : public std::runtime_error {
     public:
       Exception(BufferPool * bp, const std::string & problem) : 
@@ -94,6 +118,11 @@ namespace SoDa {
       }
     };
     
+    /**
+     * @brief The widget couldn't fill the buffer pool.  This is
+     * really odd and suggests that things have gotten way out of hand
+     * somehow. I can't imagine what would cause this.
+     */
     class FillPoolException : public Exception {
     public:
       FillPoolException(BufferPool * bp) : 
@@ -101,6 +130,11 @@ namespace SoDa {
       }
     };
 
+    /**
+     * @brief Somebody resized the vector.  That is really really bad. SoDa::Buffer 
+     * users should never resize or otherwise fiddle with a vector. See the explanation 
+     * in SoDa::Buffer. 
+     */
     class ReturnPointerException : public Exception {
     public:
       ReturnPointerException(BufferPool * bp) :
@@ -109,6 +143,11 @@ namespace SoDa {
     };
 
   private:
+    /**
+     * @brief Inside baseball: This is where the allocation/deallocation magic happens. 
+     * This is a subclass of Buffer<T> that knows which BufferPool object created it. 
+     * On destruction, the internal vector is returned to the appropriate pool.
+     */
     class PoolAllocatedBuffer : public Buffer<T> {
     public:
       PoolAllocatedBuffer(BufferPool<T> * bp, size_t n) :
@@ -132,6 +171,14 @@ namespace SoDa {
     std::mutex allocation_mtx; 
 
   public:
+    /**
+     * @brief Create a buffer. 
+     * 
+     * @param n The number of elements in the buffer's vector. 
+     *
+     * @returns A shared pointer to a buffer. The shared pointer
+     * is the trigger for releasing the buffer's storage. 
+     */
     std::shared_ptr<PoolAllocatedBuffer> getFromPool(size_t n) {
       std::lock_guard<std::mutex> lock(allocation_mtx);
       bool second_try = false; 
@@ -160,7 +207,7 @@ namespace SoDa {
     
   private:
     std::map<int, std::deque<std::vector<T> *>> pool;
-    size_t min_pool_size;
+    size_t pool_refill_size;
     std::string name; 
 
     // don't lock this, as it can only be called from getFromPool.
@@ -169,7 +216,7 @@ namespace SoDa {
 	pool[n] = std::deque<std::vector<T> *>();
       }
 
-      while(pool[n].size() < min_pool_size) {
+      while(pool[n].size() < pool_refill_size) {
 	pool[n].push_back(new std::vector<T>(n));
       }
     }

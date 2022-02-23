@@ -75,6 +75,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 namespace SoDa {
 
+  /**
+   * @brief Catch this when you don't care why the MailBox threw an exception
+   */
   class MailBoxException : public std::runtime_error {
   public:
     MailBoxException(std::string name, const std::string & problem) :
@@ -82,6 +85,9 @@ namespace SoDa {
     }
   }; 
   
+  /**
+   * @brief The subscriber ID was invalid. 
+   */
   class MailBoxMissingSubscriberException : public MailBoxException {
   public:
     MailBoxMissingSubscriberException(std::string name, const std::string & operation, int sub_id) :
@@ -140,8 +146,19 @@ namespace SoDa {
       return ret; 
     }
 
+    /**
+     * @brief What is the name of this mailbox? 
+     * @return the name.
+     */
     std::string & getName() const { return name; }
 
+    /**
+     * Get an object out of the mailbox for this subscriber
+     * 
+     * @param subscriber_id each user of a mailbox must have subscribed to the mailbox. 
+     * (I know, we're mixing metaphors here... sigh.)
+     * @returns The oldest object in the subscriber's mailbox. 
+     */
     T get(int subscriber_id) {
       std::lock_guard<std::mutex> lock(mtx);	      
       if(message_queues.size() <= subscriber_id) {
@@ -158,7 +175,14 @@ namespace SoDa {
 	}
       }
     }
-    
+
+    /**
+     * @brief Place a message in every subscriber's mailbox
+     *
+     * @param msg The message to be sent to every subscriber. Note that this 
+     * is passed by value -- each subscriber will get a copy.  Shared pointers
+     * work just fine. 
+     */
     void put(T msg) {
       std::lock_guard<std::mutex> lock(mtx);            
       for(auto & q : message_queues) {
@@ -166,6 +190,11 @@ namespace SoDa {
       }
     }
 
+    /**
+     * @brief Empty the subscriber's mailbox
+     *
+     * @param subscriber_id -- the owner. 
+     */
     void clear(int subscriber_id) {
       std::lock_guard<std::mutex> lock(mtx);      
       if(message_queues.size() <= subscriber_id) {

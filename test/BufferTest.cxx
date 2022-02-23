@@ -23,7 +23,9 @@ int main() {
   for(int i = 0; i < 8; i++) {
     std::shared_ptr<SoDa::Buffer<int>> el = pool.getFromPool(3);
     el->getVec()[2] = i;
+    std::cerr << "el->getVec()[2] = " << el->getVec()[2] << "\n";
   }
+  
 
   std::cerr << "\n\nHere goes!\n";
   auto el = pool.getFromPool(3);  

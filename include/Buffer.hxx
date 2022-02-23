@@ -86,8 +86,8 @@ namespace SoDa {
   class Buffer {
   public:
     /**
-     * @brief create a buffer object, but this can only be done
-     * through the buffer pool manager that is peculiar to this type. 
+     * @brief Create a buffer object.
+     *
      * The buffer contains a vector of type T. The vector can be 
      * manipulated by getting a reference to it via getVec(). 
      * This is a little dodgy, as the vector will live on
@@ -100,20 +100,35 @@ namespace SoDa {
      * shared pointer is re-assigned. 
      *
      * The intent here is to avoid the overhead in allocating
-     * std::vector objects. 
+     * std::vector objects. SoDa::BufferPool creates a type 
+     * derived from SoDa::Buffer whose destructor puts the 
+     * enclosed vector into a pool for later re-allocation. 
      * 
      * @param len length of the allocated vector
      */
     Buffer(size_t len) {
       vec_p = new std::vector<T>(len); 
     }
-
-    std::vector<T> & getVec() { return *vec_p; }
     
+    /**
+     * @brief Return a reference to the vector enclosed in this buffer. 
+     *
+     * Resizing this vector or deleting it is very rude. 
+     * 
+     * This reference may remain "valid", even after the buffer is destroyed. 
+     * "Valid" here means that accesses to the vector might actually do something. 
+     * But we can't be sure what that is, so don't keep the reference around. 
+     *
+     * @returns Reference to the vector.
+     */
+    std::vector<T> & getVec() { return *vec_p; }
 
   protected:
     std::vector<T> * vec_p;
     
+    /**
+     * @brief Create a buffer from a vector supplied elsewhere. 
+     */
     Buffer(std::vector<T> * vptr) {
       vec_p = vptr; 
     }
