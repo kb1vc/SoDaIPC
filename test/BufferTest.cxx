@@ -52,14 +52,15 @@ int test1() {
 
 int test2() {
   SoDa::BufferPool<int> pool("TestPool", 25);  
-  for(int trial = 0; trial < 10; trial++) {
+  for(int trial = 0; trial < 1000; trial++) {
     // create 100 vectors, and free them
     {
       std::vector<std::shared_ptr<SoDa::Buffer<int>>> bufs;
-      for(int i = 0; i < 10; i++) {
-	auto bp = pool.getFromPool(5);
+      for(int i = 0; i < 1000; i++) {
+	auto bp = pool.getFromPool(5000);
 	bufs.push_back(bp); 
-	bp->getVec()[3] = trial; 
+	bp->getVec()[3] = trial;
+	bp->getVec()[3000] = trial; 	
       }
     }
   }

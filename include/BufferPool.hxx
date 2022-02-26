@@ -152,18 +152,19 @@ namespace SoDa {
     public:
       PoolAllocatedBuffer(BufferPool<T> * bp, size_t n) :
 	Buffer<T>(n) {
-	std::cerr << "allocating " << this->vec_p << " ab initio\n";		
+	//	std::cerr << "allocating " << this->vec_p << " ab initio\n";		
 	from_pool = bp; 
       }
 
-      PoolAllocatedBuffer(BufferPool<T> * bp, std::vector<T> * vp) :
+      PoolAllocatedBuffer(BufferPool<T> * bp, 
+			  std::shared_ptr<std::vector<T>> & vp) :
 	Buffer<T>(vp) {
-	std::cerr << "allocating " << vp << " from pool\n";	
+	//	std::cerr << "allocating " << vp << " from pool\n";	
 	from_pool = bp; 
       }
 
       ~PoolAllocatedBuffer() {
-	std::cerr << "returning " << this->vec_p << "\n";
+	//	std::cerr << "returning " << this->vec_p << "\n";
 	from_pool->returnToPool(this->vec_p, this->vec_p->size());
       }
 
@@ -212,7 +213,7 @@ namespace SoDa {
 	    throw FillPoolException(this);
 	  }
 	  second_try = true; 
-	  pool[n] = std::deque<std::vector<T> *>();
+	  pool[n] = std::deque<std::shared_ptr<std::vector<T>>>();
 	  fillPool(n); 
 	}
       }
@@ -222,22 +223,22 @@ namespace SoDa {
     }
     
   private:
-    std::map<int, std::deque<std::vector<T> *>> pool;
+    std::map<int, std::deque<std::shared_ptr<std::vector<T>>>> pool;
     size_t pool_refill_size;
     std::string name; 
 
     // don't lock this, as it can only be called from getFromPool.
     void fillPool(size_t n) {
       if(pool.count(n) == 0) {
-	pool[n] = std::deque<std::vector<T> *>();
+	pool[n] = std::deque<std::shared_ptr<std::vector<T>>>();
       }
 
       while(pool[n].size() < pool_refill_size) {
-	pool[n].push_back(new std::vector<T>(n));
+	pool[n].push_back(std::make_shared<std::vector<T>>(n));
       }
     }
     
-    void returnToPool(std::vector<T> * p, size_t n) {
+    void returnToPool(std::shared_ptr<std::vector<T>> & p, size_t n) {
       std::lock_guard<std::mutex> lock(allocation_mtx);            
       if(pool.count(n) > 0) {
 	pool[n].push_front(p);

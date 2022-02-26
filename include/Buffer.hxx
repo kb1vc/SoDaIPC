@@ -107,9 +107,9 @@ namespace SoDa {
      * @param len length of the allocated vector
      */
     Buffer(size_t len) {
-      vec_p = new std::vector<T>(len); 
+      vec_p = std::make_shared<std::vector<T>>(len); 
     }
-    
+
     /**
      * @brief Return a reference to the vector enclosed in this buffer. 
      *
@@ -133,12 +133,12 @@ namespace SoDa {
     operator std::vector<T> & () { return getVec(); }
     
   protected:
-    std::vector<T> * vec_p;
+    std::shared_ptr<std::vector<T>> vec_p;
     
     /**
      * @brief Create a buffer from a vector supplied elsewhere. 
      */
-    Buffer(std::vector<T> * vptr) {
+    Buffer(std::shared_ptr<std::vector<T>> & vptr) {
       vec_p = vptr; 
     }
   };
