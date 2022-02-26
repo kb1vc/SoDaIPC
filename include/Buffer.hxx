@@ -3,6 +3,7 @@
 #include <exception>
 #include <stdexcept>
 #include <vector>
+#include <memory>
 
 /*
 BSD 2-Clause License

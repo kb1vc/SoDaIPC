@@ -150,7 +150,7 @@ namespace SoDa {
      * @brief What is the name of this mailbox? 
      * @return the name.
      */
-    std::string & getName() const { return name; }
+    const std::string & getName() const { return name; }
 
     /**
      * Get an object out of the mailbox for this subscriber
