@@ -33,7 +33,8 @@ int main() {
   for(auto s : subs) {
     std::cout << "Sending from subscriber " << s << "\n";
     auto bp = pool.getFromPool(5);
-    bp->getVec()[2] = s; 
+    std::vector<int> & b = *bp; 
+    b[2] = s; 
     mailbox.put(bp);
   }
   

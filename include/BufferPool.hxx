@@ -54,7 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
  * SoDa::Buffer is enclosed in the SoDa namespace because it is
  * inevitiable that there are lots of classes out there called
- * "BUffer."  Perhaps you have written one of them.  Naming a class "Buffer"
+ * "Buffer."  Perhaps you have written one of them.  Naming a class "Buffer"
  * is like naming a street "Oak:" It might make lots of sense, but
  * you're going to have to reconcile yourself that there's a street 
  * with the same name one town over and sometimes your pizza is going
@@ -152,17 +152,29 @@ namespace SoDa {
     public:
       PoolAllocatedBuffer(BufferPool<T> * bp, size_t n) :
 	Buffer<T>(n) {
+	std::cerr << "allocating " << this->vec_p << " ab initio\n";		
 	from_pool = bp; 
       }
 
       PoolAllocatedBuffer(BufferPool<T> * bp, std::vector<T> * vp) :
 	Buffer<T>(vp) {
+	std::cerr << "allocating " << vp << " from pool\n";	
 	from_pool = bp; 
       }
 
       ~PoolAllocatedBuffer() {
+	std::cerr << "returning " << this->vec_p << "\n";
 	from_pool->returnToPool(this->vec_p, this->vec_p->size());
       }
+
+      /**
+       * @brief return a reference to a vector.  Useful in passing
+       * shared pointers to buffers as std::vectors... It made sense
+       * when I was writing this. 
+       *
+       * @returns Reference to the vector. 
+       */
+      operator std::vector<T> & () { return this->getVec(); }
       
       BufferPool<T> * from_pool;
     };
@@ -179,10 +191,12 @@ namespace SoDa {
      * @returns A shared pointer to a buffer. The shared pointer
      * is the trigger for releasing the buffer's storage. 
      */
-    std::shared_ptr<PoolAllocatedBuffer> getFromPool(size_t n) {
+    //    std::shared_ptr<PoolAllocatedBuffer> getFromPool(size_t n) {
+    std::shared_ptr<Buffer<T>> getFromPool(size_t n) {    
       std::lock_guard<std::mutex> lock(allocation_mtx);
       bool second_try = false; 
-      
+
+#if 1 // ENABLE_POOL      
       while(1) {
 	if(pool.count(n) > 0) {
 	  if(pool[n].size() <= 0) fillPool(n);
@@ -202,8 +216,10 @@ namespace SoDa {
 	  fillPool(n); 
 	}
       }
+#else
+      return std::make_shared<Buffer<T>>(n);      
+#endif
     }
-
     
   private:
     std::map<int, std::deque<std::vector<T> *>> pool;

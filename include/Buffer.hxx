@@ -123,6 +123,15 @@ namespace SoDa {
      */
     std::vector<T> & getVec() { return *vec_p; }
 
+    /**
+     * @brief return a reference to a vector.  Useful in passing
+     * shared pointers to buffers as std::vectors... It made sense
+     * when I was writing this. 
+     *
+     * @returns Reference to the vector. 
+     */
+    operator std::vector<T> & () { return getVec(); }
+    
   protected:
     std::vector<T> * vec_p;
     
